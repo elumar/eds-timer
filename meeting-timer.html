@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Meeting Timer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #000000;
+    --surface: #111111;
+    --surface2: #1c1c1e;
+    --border: rgba(255,255,255,0.08);
+    --text: #f5f5f7;
+    --muted: #86868b;
+    --accent: #0a84ff;
+    --accent-glow: rgba(10,132,255,0.18);
+    --danger: #ff453a;
+    --success: #30d158;
+    --radius: 18px;
+    --font: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /* ───── PAGES ───── */
+  .page { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; transition: opacity 0.5s ease, transform 0.5s ease; }
+  .page.hidden { opacity: 0; pointer-events: none; transform: translateY(20px); }
+
+  /* ───── SETUP PAGE ───── */
+  #setup-page {
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(10,132,255,0.08) 0%, transparent 70%), var(--bg);
+  }
+
+  .setup-card {
+    width: 480px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    padding: 48px 40px 40px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+    animation: fadeUp 0.6s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .logo-mark {
+    width: 36px; height: 36px;
+    margin: 0 auto 28px;
+    display: block;
+    opacity: 0.9;
+  }
+
+  .setup-title {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .setup-sub {
+    font-size: 14px;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 36px;
+    font-weight: 300;
+  }
+
+  .field { margin-bottom: 20px; }
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  input[type="time"], input[type="text"], textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    font-weight: 400;
+    padding: 13px 16px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    -webkit-appearance: none;
+    color-scheme: dark;
+  }
+  input[type="time"]:focus, input[type="text"]:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  textarea {
+    resize: vertical;
+    min-height: 110px;
+    line-height: 1.6;
+    font-size: 14px;
+  }
+
+  .tz-hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 5px;
+  }
+
+  /* Toggle */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 13px 16px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .toggle-row:hover { border-color: rgba(255,255,255,0.15); }
+  .toggle-label { font-size: 15px; font-weight: 400; }
+
+  .toggle {
+    width: 44px; height: 26px;
+    background: #3a3a3c;
+    border-radius: 13px;
+    position: relative;
+    transition: background 0.25s;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 20px; height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.25s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .toggle.on::after { transform: translateX(18px); }
+
+  .agenda-section {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.3s;
+    margin-top: 0;
+  }
+  .agenda-section.visible {
+    max-height: 200px;
+    opacity: 1;
+    margin-top: 16px;
+  }
+
+
+
+  /* Start Button */
+  .btn-start {
+    width: 100%;
+    margin-top: 28px;
+    padding: 15px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-family: var(--font);
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: -0.2px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px rgba(10,132,255,0.35);
+  }
+  .btn-start:hover { background: #409cff; box-shadow: 0 6px 24px rgba(10,132,255,0.45); }
+  .btn-start:active { transform: scale(0.98); }
+  .btn-start:disabled { background: #3a3a3c; box-shadow: none; color: var(--muted); cursor: not-allowed; }
+
+  /* ───── TIMER PAGE ───── */
+  #timer-page {
+    background: var(--bg);
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .timer-bg {
+    position: fixed; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse 100% 70% at 50% 50%, rgba(10,132,255,0.05) 0%, transparent 65%);
+    pointer-events: none;
+  }
+
+  .timer-content {
+    position: relative; z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 48px 60px;
+    gap: 0;
+  }
+
+  .timer-status {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+    animation: fadeIn 0.6s ease both;
+  }
+
+  .timer-display {
+    font-size: clamp(80px, 14vw, 160px);
+    font-weight: 200;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    animation: fadeIn 0.6s 0.1s ease both;
+    transition: color 0.5s;
+  }
+  .timer-display.started { color: var(--success); }
+  .timer-display.imminent { color: #ffd60a; }
+
+  .meeting-name-display {
+    font-size: 16px;
+    font-weight: 300;
+    color: var(--muted);
+    margin-top: 14px;
+    letter-spacing: -0.1px;
+    animation: fadeIn 0.6s 0.2s ease both;
+  }
+
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+
+  /* Agenda panel */
+  .agenda-panel {
+    position: fixed;
+    right: 48px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 280px;
+    background: rgba(28,28,30,0.7);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px 24px;
+    backdrop-filter: blur(24px);
+    animation: slideIn 0.7s 0.3s cubic-bezier(.22,1,.36,1) both;
+    z-index: 2;
+  }
+  @keyframes slideIn {
+    from { opacity:0; transform: translateY(-50%) translateX(20px); }
+    to   { opacity:1; transform: translateY(-50%) translateX(0); }
+  }
+
+  .agenda-panel-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .agenda-items { display: flex; flex-direction: column; gap: 10px; }
+  .agenda-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    animation: fadeIn 0.4s ease both;
+  }
+  .agenda-item-num {
+    width: 20px; height: 20px;
+    background: var(--accent-glow);
+    border: 1px solid rgba(10,132,255,0.3);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .agenda-item-text {
+    font-size: 14px;
+    font-weight: 400;
+    color: rgba(245,245,247,0.85);
+    line-height: 1.45;
+  }
+
+  /* Music indicator */
+  .music-bar {
+    position: fixed;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(28,28,30,0.6);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 8px 16px;
+    backdrop-filter: blur(12px);
+    z-index: 2;
+    animation: fadeIn 0.6s 0.5s ease both;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .music-bar:hover { background: rgba(44,44,46,0.8); }
+
+  .music-waves {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 14px;
+  }
+  .wave {
+    width: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    animation: wave 1.2s ease-in-out infinite;
+  }
+  .wave:nth-child(1) { height: 6px;  animation-delay: 0s; }
+  .wave:nth-child(2) { height: 10px; animation-delay: 0.15s; }
+  .wave:nth-child(3) { height: 14px; animation-delay: 0.3s; }
+  .wave:nth-child(4) { height: 8px;  animation-delay: 0.45s; }
+  .wave:nth-child(5) { height: 12px; animation-delay: 0.6s; }
+
+  @keyframes wave {
+    0%,100% { transform: scaleY(0.4); opacity: 0.6; }
+    50%      { transform: scaleY(1);   opacity: 1; }
+  }
+  .wave.paused { animation-play-state: paused; transform: scaleY(0.4); opacity: 0.4; }
+
+  .music-label { font-size: 12px; color: var(--muted); font-weight: 400; }
+
+  /* Back button */
+  .btn-back {
+    position: fixed;
+    top: 32px;
+    left: 40px;
+    background: rgba(28,28,30,0.6);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 7px 14px;
+    cursor: pointer;
+    backdrop-filter: blur(12px);
+    transition: color 0.2s, background 0.2s;
+    z-index: 10;
+    animation: fadeIn 0.4s ease both;
+  }
+  .btn-back:hover { color: var(--text); background: rgba(44,44,46,0.8); }
+
+  /* Error */
+  .error-msg { color: var(--danger); font-size: 12px; margin-top: 6px; display: none; }
+  .error-msg.show { display: block; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ SETUP PAGE ═══════════ -->
+<div class="page" id="setup-page">
+  <div class="setup-card">
+
+    <!-- Apple logo SVG -->
+    <svg class="logo-mark" viewBox="0 0 36 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M30.1 23.1c0-5.7 4.7-8.4 4.9-8.6-2.7-3.9-6.8-4.4-8.3-4.5-3.5-.4-6.9 2.1-8.7 2.1-1.8 0-4.6-2-7.5-2-3.9.1-7.5 2.3-9.5 5.8-4 7-1 17.3 2.9 23 1.9 2.8 4.2 5.9 7.2 5.8 2.9-.1 4-1.9 7.5-1.9 3.5 0 4.5 1.9 7.5 1.8 3.1-.1 5.1-2.8 7-5.6 2.2-3.2 3.1-6.3 3.2-6.5-.1 0-6.2-2.4-6.2-9.4zM24.5 6.8c1.6-2 2.7-4.7 2.4-7.5-2.3.1-5.1 1.6-6.7 3.5-1.5 1.7-2.8 4.5-2.4 7.1 2.5.2 5.1-1.3 6.7-3.1z" fill="white"/>
+    </svg>
+
+    <h1 class="setup-title">Meeting Timer</h1>
+    <p class="setup-sub">Set up your session</p>
+
+    <div class="field">
+      <label>Meeting Start Time (CST)</label>
+      <input type="time" id="start-time" />
+      <div class="tz-hint" id="tz-hint">Your local time: <span id="local-now">—</span></div>
+      <div class="error-msg" id="time-error">Please enter a valid start time.</div>
+    </div>
+
+    <div class="field">
+      <label>Meeting Name <span style="opacity:0.4;font-style:italic;text-transform:none;letter-spacing:0">(optional)</span></label>
+      <input type="text" id="meeting-name" placeholder="e.g. BOT Weekly Sync" />
+    </div>
+
+
+
+    <div class="field">
+      <label>Agenda</label>
+      <div class="toggle-row" id="agenda-toggle-row" onclick="toggleAgenda()">
+        <span class="toggle-label">Include agenda</span>
+        <div class="toggle" id="agenda-toggle"></div>
+      </div>
+      <div class="agenda-section" id="agenda-section">
+        <textarea id="agenda-text" placeholder="Add your topics, one per line:&#10;&#10;• Project status update&#10;• Blockers review&#10;• Next steps"></textarea>
+      </div>
+    </div>
+
+    <button class="btn-start" id="btn-start" onclick="startTimer()">Start Session</button>
+  </div>
+</div>
+
+<!-- ═══════════ TIMER PAGE ═══════════ -->
+<div class="page hidden" id="timer-page">
+  <div class="timer-bg"></div>
+  <button class="btn-back" onclick="goBack()">← Back</button>
+
+  <div class="timer-content">
+    <div class="timer-status" id="timer-status">STARTS IN</div>
+    <div class="timer-display" id="timer-display">00:00:00</div>
+    <div class="meeting-name-display" id="meeting-name-display"></div>
+  </div>
+
+  <div class="agenda-panel" id="agenda-panel" style="display:none">
+    <div class="agenda-panel-title">Agenda</div>
+    <div class="agenda-items" id="agenda-items"></div>
+  </div>
+
+  <div class="music-bar" id="music-bar" style="display:none" onclick="toggleMusic()">
+    <div class="music-waves" id="music-waves">
+      <div class="wave" id="w1"></div>
+      <div class="wave" id="w2"></div>
+      <div class="wave" id="w3"></div>
+      <div class="wave" id="w4"></div>
+      <div class="wave" id="w5"></div>
+    </div>
+    <span class="music-label" id="music-label">Now Playing</span>
+  </div>
+</div>
+
+<audio id="audio" loop></audio>
+
+<script>
+  // ── State
+  let timerInterval = null;
+  let agendaOpen = false;
+  let musicPlaying = false;
+  const audio = document.getElementById('audio');
+  audio.src = 'soundtrack.mp3';
+
+  // ── Live clock on setup
+  function updateLocalClock() {
+    const now = new Date();
+    const fmt = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit', timeZoneName:'short' });
+    document.getElementById('local-now').textContent = fmt;
+  }
+  updateLocalClock();
+  setInterval(updateLocalClock, 1000);
+
+  // ── Agenda toggle
+  function toggleAgenda() {
+    agendaOpen = !agendaOpen;
+    const toggle = document.getElementById('agenda-toggle');
+    const section = document.getElementById('agenda-section');
+    toggle.classList.toggle('on', agendaOpen);
+    section.classList.toggle('visible', agendaOpen);
+  }
+
+  // ── MP3 upload
+  document.getElementById('mp3-input').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    audioBlob = URL.createObjectURL(file);
+    audio.src = audioBlob;
+    const label = document.getElementById('mp3-label');
+    label.textContent = '✓ ' + file.name;
+    label.classList.add('loaded');
+  });
+
+  // Clear error whenever the time field changes (covers both keyboard and native picker)
+  ['input', 'change'].forEach(evt => {
+    document.getElementById('start-time').addEventListener(evt, () => {
+      document.getElementById('time-error').classList.remove('show');
+    });
+  });
+
+  // ── Start
+  function startTimer() {
+    // Always clear error first
+    document.getElementById('time-error').classList.remove('show');
+
+    const timeInput = document.getElementById('start-time').value;
+    if (!timeInput) {
+      document.getElementById('time-error').classList.add('show');
+      return;
+    }
+
+    const [hours, minutes] = timeInput.split(':').map(Number);
+    const now = new Date();
+
+    // Get current date string in Chicago timezone (handles CST/CDT automatically)
+    const chicagoDateStr = now.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }); // YYYY-MM-DD
+    // Build an ISO string for the meeting start in Chicago time
+    const hh = String(hours).padStart(2, '0');
+    const mm = String(minutes).padStart(2, '0');
+    // Use Intl to find the UTC offset for Chicago right now
+    const chicagoNowStr = now.toLocaleString('en-US', { timeZone: 'America/Chicago', hour12: false,
+      year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    const chicagoNow = new Date(chicagoNowStr.replace(/(\d+)\/(\d+)\/(\d+)/, '$3-$1-$2'));
+    const utcOffset = now - chicagoNow; // ms to add to Chicago wall time to get UTC
+
+    // Build meeting start as Chicago wall time, then convert to UTC
+    const meetingWall = new Date(`${chicagoDateStr}T${hh}:${mm}:00`);
+    let meetingStartUTC = new Date(meetingWall.getTime() + utcOffset);
+
+    // If already past, assume next occurrence
+    if (meetingStartUTC <= now) {
+      meetingStartUTC = new Date(meetingStartUTC.getTime() + 24 * 3600 * 1000);
+    }
+
+    // Setup meeting name
+    const name = document.getElementById('meeting-name').value.trim();
+    const nameEl = document.getElementById('meeting-name-display');
+    nameEl.textContent = name || '';
+
+    // Setup agenda
+    const agendaText = document.getElementById('agenda-text').value.trim();
+    const agendaPanel = document.getElementById('agenda-panel');
+    if (agendaOpen && agendaText) {
+      const items = agendaText.split('\n').map(l => l.replace(/^[\s•\-*\d.]+/, '').trim()).filter(Boolean);
+      const container = document.getElementById('agenda-items');
+      container.innerHTML = '';
+      items.forEach((item, i) => {
+        const div = document.createElement('div');
+        div.className = 'agenda-item';
+        div.style.animationDelay = (0.4 + i * 0.07) + 's';
+        div.innerHTML = `<div class="agenda-item-num">${i+1}</div><div class="agenda-item-text">${item}</div>`;
+        container.appendChild(div);
+      });
+      agendaPanel.style.display = '';
+    } else {
+      agendaPanel.style.display = 'none';
+    }
+
+    // Music — always present
+    const musicBar = document.getElementById('music-bar');
+    musicBar.style.display = '';
+    audio.play().then(() => {
+      musicPlaying = true;
+      setWavesPlaying(true);
+    }).catch(() => {
+      musicPlaying = false;
+      setWavesPlaying(false);
+      document.getElementById('music-label').textContent = 'Tap to Play';
+    });
+
+    // Switch pages
+    document.getElementById('setup-page').classList.add('hidden');
+    document.getElementById('timer-page').classList.remove('hidden');
+
+    // Countdown loop
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => tick(meetingStartUTC), 500);
+    tick(meetingStartUTC);
+  }
+
+  function tick(target) {
+    const now = new Date();
+    const diff = target - now;
+    const display = document.getElementById('timer-display');
+    const status = document.getElementById('timer-status');
+
+    if (diff > 0) {
+      // Countdown to meeting
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      display.textContent = fmt(h) + ':' + fmt(m) + ':' + fmt(s);
+      display.className = 'timer-display' + (diff < 300000 ? ' imminent' : '');
+      status.textContent = 'STARTS IN';
+    } else {
+      // Meeting in progress — count up
+      const elapsed = Math.abs(diff);
+      const h = Math.floor(elapsed / 3600000);
+      const m = Math.floor((elapsed % 3600000) / 60000);
+      const s = Math.floor((elapsed % 60000) / 1000);
+      display.textContent = fmt(h) + ':' + fmt(m) + ':' + fmt(s);
+      display.className = 'timer-display started';
+      status.textContent = 'IN PROGRESS';
+    }
+  }
+
+  function fmt(n) { return String(n).padStart(2, '0'); }
+
+  // ── Music toggle
+  function toggleMusic() {
+    if (musicPlaying) {
+      audio.pause();
+      musicPlaying = false;
+      setWavesPlaying(false);
+      document.getElementById('music-label').textContent = 'Paused';
+    } else {
+      audio.play();
+      musicPlaying = true;
+      setWavesPlaying(true);
+      document.getElementById('music-label').textContent = 'Now Playing';
+    }
+  }
+
+  function setWavesPlaying(playing) {
+    document.querySelectorAll('.wave').forEach(w => w.classList.toggle('paused', !playing));
+  }
+
+  // ── Back
+  function goBack() {
+    clearInterval(timerInterval);
+    audio.pause();
+    musicPlaying = false;
+    document.getElementById('timer-page').classList.add('hidden');
+    document.getElementById('setup-page').classList.remove('hidden');
+  }
+</script>
+</body>
+</html>
